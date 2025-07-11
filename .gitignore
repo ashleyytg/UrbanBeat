@@ -1,0 +1,9 @@
+# Ignorar la carpeta del entorno virtual de Python
+venv/
+
+# Ignorar el archivo de variables de entorno (claves API, etc.)
+.env
+
+# Archivos de caché y compilados de Python
+__pycache__/
+*.pyc
