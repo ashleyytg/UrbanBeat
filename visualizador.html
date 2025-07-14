@@ -1,28 +1,48 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UrbanBeat - Ve al ritmo de la ciudad</title>
+  <!-- Configuración básica del documento HTML -->
+  <meta charset="UTF-8"> <!-- Define la codificación de caracteres a UTF-8, esencial para soportar caracteres especiales y acentos en español. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Configura el viewport para asegurar que la página sea responsiva y se adapte a diferentes tamaños de pantalla (móviles, tablets, desktops). -->
+  <title>UrbanBeat - Ve al ritmo de la ciudad</title> <!-- Define el título de la página que se muestra en la pestaña del navegador. -->
+<!-- Inclusión de librerías y frameworks externos -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Estilos CSS personalizados para la aplicación -->
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: #f4f4f5; display: flex; flex-direction: column; }
-    #map { height: 500px; width: 100%; border-radius: 0.5rem; }
+    /* Estilos generales para el documento HTML y el cuerpo de la página */
+    html, body {
+            height: 100%; /* Asegura que tanto el elemento html como el body ocupen el 100% de la altura de la ventana del navegador. */
+            margin: 0; /* Elimina el margen predeterminado del body para un control total del espaciado. */
+            padding: 0; /* Elimina el padding predeterminado del body. */
+            font-family: 'Inter', sans-serif; /* Establece 'Inter' como la fuente principal, con 'sans-serif' como respaldo. */
+            background-color: #f4f4f5; /* Define un color de fondo suave y claro para toda la página. */
+            display: flex; /* Habilita el modelo de caja flexible (flexbox) para el body. */
+            flex-direction: column; /* Organiza los elementos hijos del body en una columna vertical. */
+        }
+   /* Estilos específicos para el contenedor del mapa Leaflet */
+    #map { height: 500px; width: 100%; border-radius: 0.5rem; } /* Define una altura fija para el mapa en pantallas grandes, que el mapa ocupe todo el ancho disponible de su contenedor, y que el mapa ocupe todo el ancho disponible de su contenedor*/ 
+   /* Media query para hacer el mapa responsivo en pantallas más pequeñas (ej. móviles) */
     @media (max-width: 768px) { #map { height: 300px; } }
+    /* Estilos para el cuadro de información que se superpone al mapa */
     #info { position: absolute; bottom: 10px; left: 10px; background: rgba(255, 255, 255, 0.9); padding: 10px 15px; border-radius: 8px; border: 1px solid #ccc; z-index: 1000; display: none; font-size: 0.9em; color: #333; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    /* Estilos para el mensaje de error que se muestra al usuario */
     #error-message { color: #ef4444; margin-top: 15px; font-weight: 500; display: none; text-align: center; padding: 10px; background-color: #fee2e2; border-radius: 8px; border: 1px solid #fca5a5; }
+    /* Estilos para la sección de encabezado con imagen de fondo */
     .header-bg-image { background-image: url('https://www.peru.travel/Contenido/Atractivo/Imagen/es/14/1.1/Principal/centro-historico-de-lima.jpg'); background-size: cover; background-position: center; position: relative; overflow: hidden; }
+    /* Pseudo-elemento para crear un overlay oscuro sobre la imagen de fondo del encabezado */
     .header-bg-image::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); z-index: 1; }
+    /* Estilos para el contenido dentro de la sección de encabezado (texto, títulos) */
     .header-content { position: relative; z-index: 2; }
   </style>
 </head>
 <body class="font-sans text-gray-800">
-
+  <!-- Sección del encabezado (Header) de la página -->
   <header class="bg-emerald-700 text-white p-4 shadow-md">
     <nav class="container mx-auto flex justify-between items-center">
       <a href="#" class="text-3xl font-bold tracking-tight text-emerald-50 hover:text-emerald-200">UrbanBeat</a>
+      <!-- Lista de enlaces de navegación -->
       <ul class="flex space-x-6">
         <li><a href="#" class="hover:text-emerald-200">Inicio</a></li>
         <li><a href="#" class="hover:text-emerald-200">Explorar</a></li>
@@ -31,7 +51,7 @@
       </ul>
     </nav>
   </header>
-
+<!-- Sección de bienvenida con imagen de fondo y texto principal -->
   <section class="header-bg-image py-20 px-4 text-center text-white">
     <div class="header-content container mx-auto">
       <h1 class="text-5xl font-extrabold mb-4 leading-tight">UrbanBeat</h1>
@@ -71,54 +91,70 @@
             sandbox="allow-same-origin allow-scripts allow-popups allow-forms">
     </iframe>
   </div>
-
+<!-- Sección del pie de página (Footer) -->
   <footer class="bg-gray-800 text-white py-6 px-4 text-center mt-auto">
     <div class="container mx-auto">
       <p>&copy; 2025 UrbanBeat. Todos los derechos reservados.</p>
     </div>
   </footer>
-
+<!-- Script JavaScript para la lógica interactiva de la aplicación -->
   <script>
-    let map;
-    let lastQuery = '';
-    let lastLocation = '';
-
+    // Variables globales para el manejo del mapa y el estado de la búsqueda
+    let map; // Variable que contendrá la instancia del objeto mapa de Leaflet.
+    let lastQuery = ''; // Almacena la última consulta de búsqueda ingresada por el usuario.
+    let lastLocation = ''; // Almacena la última ubicación de búsqueda ingresada por el usuario.
+         /**
+         * @function initializeMap
+         * @description Inicializa o reinicializa el mapa de Leaflet.
+         * Si ya existe una instancia de mapa, la remueve para evitar duplicados.
+         * Centra el mapa en Lima y añade la capa de OpenStreetMap.
+         */
     function initializeMap() {
-      if (map) map.remove();
-      map = L.map('map').setView([-12.0464, -77.0428], 12);
+      if (map) map.remove(); // Si la variable 'map' ya tiene un mapa, lo elimina del DOM
+      map = L.map('map').setView([-12.0464, -77.0428], 12); // Crea una nueva instancia de mapa Leaflet, la asocia al div con id 'map', la centra en las coordenadas de Lima y establece un nivel de zoom de 12.
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      }).addTo(map);
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' // Define la capa de teselas (tiles) de OpenStreetMap y su atribución legal.
+      }).addTo(map); // Añade la capa de teselas al mapa.
     }
-
+         /**
+         * @async
+         * @function realizarBusqueda
+         * @description Función asíncrona que se ejecuta al hacer clic en el botón "Realizar Búsqueda".
+         * Obtiene los valores de los campos de consulta y ubicación, los envía a un backend
+         * y, si la respuesta es exitosa, llama a 'loadAndVisualizeRoute()'.
+         * Maneja los errores de la llamada al backend.
+         */
     async function realizarBusqueda() {
-      const query = document.getElementById('query').value.trim();
-      const location = document.getElementById('location').value.trim();
-      const errorDiv = document.getElementById('error-message');
-      errorDiv.style.display = 'none';
+      const query = document.getElementById('query').value.trim(); // Obtiene el texto del campo de entrada con id 'query' y elimina espacios en blanco al inicio/fin.
+      const location = document.getElementById('location').value.trim(); // Obtiene el texto del campo de entrada con id 'location' y elimina espacios en blanco. 
+      const errorDiv = document.getElementById('error-message'); // Obtiene una referencia al div donde se mostrarán los mensajes de error.
+      errorDiv.style.display = 'none'; // Oculta cualquier mensaje de error que pudiera estar visible de una búsqueda anterior. 
+ 
+      lastQuery = query; // Guarda la consulta actual en 'lastQuery' para uso posterior (ej. en el cuadro de información).
+      lastLocation = location; // Guarda la ubicación actual en 'lastLocation'.
 
-      lastQuery = query;
-      lastLocation = location;
-
-      try {
+      try { 
+        // Realiza una solicitud POST al servidor backend (asumido en http://localhost:5000)
         const res = await fetch('http://localhost:5000/api/ejecutar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, location })
-        });
-        const data = await res.json();
+          method: 'POST', // Especifica el método HTTP como POST.
+          headers: { 'Content-Type': 'application/json' }, // Indica que el cuerpo de la solicitud es JSON.
+          body: JSON.stringify({ query, location }) // Convierte el objeto JavaScript {query, location} a una cadena JSON para enviarlo en el cuerpo de la solicitud.
+        }); 
+        const data = await res.json(); // Parsea la respuesta del servidor como JSON.
 
         if (data.success) {
-          await loadAndVisualizeRoute();
-
+          await loadAndVisualizeRoute(); // Si el backend responde con 'success: true', procede a cargar y visualizar la ruta.
+       // Limpia los campos de entrada después de una búsqueda exitosa para una nueva entrada.
           document.getElementById('query').value = "";
           document.getElementById('location').value = "";
         } else {
+          // Si el backend responde con 'success: false', lanza un error con el mensaje proporcionado o un mensaje genérico.
           throw new Error(data.message || 'Error desconocido');
         }
-      } catch (e) {
-        errorDiv.textContent = `❌ ${e.message}`;
-        errorDiv.style.display = 'block';
+      } catch (e) { 
+        // Captura cualquier error que ocurra durante la solicitud fetch o el procesamiento de la respuesta.
+        errorDiv.textContent = `❌ ${e.message}`; // Muestra el mensaje de error en el div 'errorDiv'.
+        errorDiv.style.display = 'block'; // Hace visible el div de error.
       }
     }
 
