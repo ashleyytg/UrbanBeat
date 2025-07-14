@@ -1,0 +1,63 @@
+1. Resumen del Proyecto UrbanBeat
+UrbanBeat es una innovadora aplicación web interactiva desarrollada con el objetivo de transformar y enriquecer la experiencia turística y de exploración urbana en Lima. Nuestro objetivo principal es empoderar a los usuarios, permitiéndoles visualizar rutas geográficas mediante un visor basado en Leaflet y OpenStreetMap, y descubrir atracciones turísticas y puntos de interés del distrito elegido por el usuario mediante la integración de datos extraídos desde TripAdvisor.
+Este proyecto se enfoca en combinar web scraping, servidores backend, visualización cartográfica dinámica con API OpenStreetMap en una interfaz estilizada. Nos hemos enfocado en construir una herramienta que no solo es ligera y rápida, sino también funcional, que extrae información en tiempo real, de manera estructurada garantizando que sea fácilmente comprensible y accesible para los visitantes o residentes que buscan explorar diferentes zonas de la ciudad.
+UrbanBeat aspira a ser la guía definitiva para navegar y disfrutar de la vibrante vida urbana de Lima, ofreciendo una perspectiva clara y actualizada del "pulso" de la ciudad.
+
+2. Diseño y planeamiento de la extracción
+
+OpenStreetMap
+Se utilizó el servicio de Nominatim.OpenStreetMap para obtener las coordenadas geográficas de un destino buscado por el usuario. Una de las complicaciones fue la ausencia de una API oficial con acceso ilimitado y estable, ya que muchos servicios de geolocalización imponen restricciones de uso o requieren autenticación. Nominatim, aunque pública, tiene limitaciones de tasa de uso. Además, los resultados no siempre son precisos o consistentes si la consulta no está bien estructurada, por lo que se tuvo que diseñar una lógica de búsqueda que combine el nombre del sitio con la ubicación para mejorar la precisión. Se intento usar otra API en su lugar, una API de clima, porque nos daba la latitud, longitud y el clima, donde la idea era ignorar el clima y nos quedamos con la ubicación que nos da, pero al final tuvimos problemas con integrar esa API en el código, pues se movía al momento de calcular los lugares o no corria bien a veces.
+
+GeoApify
+GeoApify fue utilizada para calcular rutas desde la ubicación actual del usuario hacia el destino previamente encontrado. Un reto importante fue la compatibilidad entre las coordenadas obtenidas desde Nominatim y el formato requerido por la API de GeoApify. Se diseñó un script que extrae las coordenadas del punto de inicio y destino desde archivos .json, genera la ruta a través de una solicitud HTTP y guarda la respuesta con todos los datos del trayecto, incluidos los puntos de la línea que se utilizarán en el visualizador del mapa.
+
+TripAdvisor
+Uno de los desafios fue identificar y aislar los componentes relevantes dentro del HTML de TripAdvisor, que cambia de manera constante su estructura. Para superar esto, se realizó un análisis manual para encontrar patrones comunes, como tarjeta de atracciones, imágenes destacadas, calificaciones y enlaces.
+Se definieron los siguientes campos a extraer: Nombre de la atracción, URL directa, imagen destacada y distrito de origen
+
+
+3. Descripción de los scripts y procesos: 
+
+Este proyecto esta compuesto por diversos archivos .py, .html, .js y .json los cuales interactúan entre si para crear una experiencia de manera fluida al usuario, en este parte se detalla el propósito y funcionamiento de cada uno:
+
+01_OpenStreetMap.py
+Este script utiliza la API pública de Nominatim.OpenStreetMap para buscar un lugar determinado dentro de una ciudad o distrito. Se ejecuta con dos argumentos: el nombre del sitio y la ubicación. Genera una consulta del tipo “<lugar> en <ubicación>”, realiza una solicitud HTTP y recupera el primer resultado en formato JSON. Si encuentra coordenadas válidas, guarda un archivo llamado destination.json contiene el nombre del lugar, la latitud y la longitud. Ese archivo se usará luego como destino para calcular una ruta. Si no se encuentra el lugar o hay un error en la conexión, el script muestra un mensaje y se detiene.
+
+
+02_ubicacion_actual.py
+Este script obtiene la ubicación actual del usuario mediante las herramientas de geolocalización y para ello usa funciones que detectan la IP pública del usuario o integraciones con APIs de localización, con esto permitimos que el visor muestre el punto donde el usuario se encuentre y logra mejorar la experiencia del uso ya que permite planificar rutas, etc.
+
+
+03_GeoApify.py
+Este script toma como entrada dos archivos: mi_ubicacion.json (la posición actual del usuario) y destination.json (el destino encontrado con Nominatim). Extrae las coordenadas de ambos puntos y genera una solicitud a la API de Geoapify para calcular una ruta en automóvil. La respuesta, que incluye la línea de la ruta y detalles del trayecto, se guarda en ruta.json. Si los archivos de entrada están mal formateados o la API falla, el programa muestra un mensaje de error y termina sin crear la ruta.
+
+
+backend.py
+Encargado de procesar las peticiones del frontend y devolver respuestas, logra definir las rutas, actúa como puente entre el usuario y los servicios externos como TripAdvisor o GeoApify, logra funciones que formatean, filtran y estructuran la información antes de enviarla al frontend.
+Aunque no se hace un scraping clásico (leyendo HTML con BeautifulSoup), se accede a una API interna de TripAdvisor que devuelve resultados en formato JSON cuando se le pasa un parámetro tipo ?location=Miraflores. Esto se puede considerar una forma moderna de scraping, ya que se automatiza el proceso de extracción de datos que originalmente están pensados para mostrarse en la interfaz web.
+
+visualizador.html
+Este archivo constituye la interfaz principal de la aplicación UrbanBeat, funcionando como un visor interactivo de rutas y un explorador urbano. Su propósito es ofrecer a los usuarios una herramienta intuitiva para visualizar trayectos geográficos y descubrir puntos de interés relevantes dentro de la ciudad de Lima.
+Este documento HTML integra varias funcionalidades clave como:
+Búsqueda y Visualización de Rutas: Permite a los usuarios introducir una query (lo que buscan, ej. "restaurante") y una location (dónde buscar, ej. "Cieneguilla, Lima, Perú"). Al activar la "Realizar Búsqueda", el sistema interactúa con un backend para procesar la solicitud.
+Visualización Cartográfica con Leaflet: El corazón de la aplicación es un mapa interactivo impulsado por la librería Leaflet y datos de OpenStreetMap. Este mapa es capaz de:
+Cargar y dibujar rutas: Una vez que el backend genera un archivo ruta.json (basado en la búsqueda del usuario), el frontend lo carga y visualiza el trayecto sobre el mapa, mostrando puntos de inicio y fin.
+Mostrar información de la ruta: Presenta datos relevantes como la distancia y el tiempo estimado del recorrido.
+Integración con TripAdvisor: Para enriquecer la experiencia de exploración, la página incluye un iframe que se carga dinámicamente. Este dirige al usuario a una búsqueda en TripAdvisor basada en la locación ingresada, permitiendo descubrir atracciones, restaurantes y otros lugares de interés directamente desde la aplicación.
+Manejo de Errores: Incorpora mecanismos para mostrar mensajes de error claros al usuario en caso de problemas con la carga de datos o la comunicación con el backend.
+
+abrir_urbanbeat.bat
+Este archivo en un script diseñado para facilitar la apertura rapida de nuestro buscador sin necesidad de ejecutar los comandos de manera directa. Va de la mano con el visualizador.html ya que lo abre permitiendo asi la visualizacion directa y dependiendo del usuario para hacer cambios a su dispocisión, este bat aporta comodidad y rapidez a la hora de mostrar el proyecto.
+
+
+4. Conclusiones
+
+UrbanBeat representa una solución funcional, extensible y moderna para la visualización urbana y turística de la ciudad. Combina scraping, visualización en tiempo real, uso de APIs, JavaScript, json, py.
+
+Durante el desarrollo de abordaron varios desafíos:
+
+Conseguir APIs de ubicación que funcionaran adecuadamente.
+Comprender la estructura cambiante de sitios como TripAdvisor
+Lograr una experiencia de usuario fluida 
+Manejar la integración entre fronted y backend de forma dinámica
+
