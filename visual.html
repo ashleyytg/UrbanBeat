@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <!-- Configuración básica del documento HTML -->
+    <meta charset="UTF-8"> <!-- Define la codificación de caracteres a UTF-8, crucial para mostrar correctamente caracteres especiales y acentos en español. Es como decirle al navegador qué "idioma de caracteres" usar. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Esencial para la responsividad. Asegura que la página se adapte y se vea bien en diferentes dispositivos (móviles, tablets, computadoras), ajustando el ancho a la pantalla del dispositivo. -->
+    <title>UrbanBeat - Ve al ritmo de la ciudad</title> <!-- El título que aparece en la pestaña o ventana del navegador. Es el nombre de nuestra aplicación. -->
+
+    <!-- Inclusión de librerías y frameworks externos -->
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Incluye Tailwind CSS. Es un framework que nos permite estilizar la página de forma rápida y moderna directamente en el HTML, sin escribir mucho CSS personalizado. Nos ayuda a que la página se vea bien sin esfuerzo. -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /> <!-- Enlaza la hoja de estilos de Leaflet. Leaflet es una librería JavaScript para crear mapas interactivos, y este CSS le da la apariencia básica al mapa. -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> <!-- Incluye el código JavaScript de Leaflet. Este script es el "cerebro" que permite que el mapa funcione, se mueva, muestre marcadores, etc. -->
+
+    <!-- Estilos CSS personalizados para la aplicación -->
+    <style>
+        /* Estilos generales para todo el documento HTML y el cuerpo de la página */
+        html, body {
+            height: 100%; /* Asegura que la página ocupe toda la altura disponible en la ventana del navegador, lo que es clave para un diseño responsivo. */
+            margin: 0; /* Elimina los márgenes predeterminados del navegador, dándonos control total sobre el espaciado. */
+            padding: 0; /* Elimina el relleno predeterminado del navegador. */
+            font-family: 'Inter', sans-serif; /* Define la tipografía principal de la aplicación. 'Inter' es una fuente moderna y legible. */
+            background-color: #f4f4f5; /* Establece un color de fondo suave para toda la página, creando una estética limpia. */
+            display: flex; /* Habilita Flexbox. Esto es fundamental para organizar los elementos de la página de manera flexible, en este caso, en una columna. */
+            flex-direction: column; /* Organiza los elementos hijos del <body> (encabezado, contenido principal, pie de página) en una pila vertical. */
+        }
+        /* Estilos específicos para el contenedor del mapa Leaflet */
+        #map {
+            height: 500px; /* Define la altura inicial del mapa en pantallas grandes. */
+            width: 100%; /* Asegura que el mapa ocupe todo el ancho disponible de su contenedor, adaptándose al espacio. */
+            border-radius: 0.5rem; /* Aplica bordes redondeados al mapa, dándole un aspecto más moderno y suave. */
+        }
+        /* Media query para hacer el mapa responsivo en pantallas más pequeñas (ej. móviles) */
+        @media (max-width: 768px) {
+            #map { height: 300px; } /* Cuando la pantalla es pequeña (menos de 768px de ancho), la altura del mapa se reduce para adaptarse mejor a la visualización móvil. */
+        }
+        /* Estilos para el cuadro de información que se superpone al mapa */
+        #info {
+            position: absolute; /* Permite posicionar este cuadro de forma precisa sobre el mapa. */
+            bottom: 10px; left: 10px; /* Lo coloca a 10px de los bordes inferior e izquierdo del mapa. */
+            background: rgba(255, 255, 255, 0.9); /* Fondo blanco semitransparente, para que se vea un poco el mapa detrás. */
+            padding: 10px 15px; /* Espaciado interno para el texto. */
+            border-radius: 8px; /* Bordes redondeados. */
+            border: 1px solid #ccc; /* Un borde sutil. */
+            z-index: 1000; /* Asegura que este cuadro esté siempre por encima del mapa y otros elementos. */
+            display: none; /* Inicialmente, el cuadro está oculto y solo se mostrará cuando haya información de ruta. */
+            font-size: 0.9em; /* Tamaño de fuente ligeramente más pequeño. */
+            color: #333; /* Color de texto oscuro para buena legibilidad. */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Añade una sombra para darle un efecto de "flotante". */
+        }
+        /* Estilos para el mensaje de error que se muestra al usuario */
+        #error-message {
+            color: #ef4444; /* Color de texto rojo brillante para indicar un error. */
+            margin-top: 15px; /* Espacio superior. */
+            font-weight: 500; /* Texto ligeramente más negrita. */
+            display: none; /* Inicialmente oculto, solo se muestra si ocurre un error. */
+            text-align: center; /* Centra el texto del mensaje de error. */
+            padding: 10px; /* Relleno interno. */
+            background-color: #fee2e2; /* Fondo rojo claro para el mensaje. */
+            border-radius: 8px; /* Bordes redondeados. */
+            border: 1px solid #fca5a5; /* Borde rojo claro. */
+        }
+        /* Estilos para la sección de encabezado con imagen de fondo */
+        .header-bg-image {
+            background-image: url('https://www.peru.travel/Contenido/Atractivo/Imagen/es/14/1.1/Principal/centro-historico-de-lima.jpg'); /* Define la imagen de fondo de la sección principal, una vista del centro histórico de Lima. */
+            background-size: cover; /* Asegura que la imagen cubra todo el espacio disponible. */
+            background-position: center; /* Centra la imagen de fondo. */
+            position: relative; /* Necesario para posicionar el 'overlay' oscuro sobre la imagen. */
+            overflow: hidden; /* Oculta cualquier parte de la imagen que se salga del contenedor. */
+        }
+        /* Pseudo-elemento para crear un overlay oscuro sobre la imagen de fondo del encabezado */
+        .header-bg-image::before {
+            content: ''; /* Es un elemento "fantasma" que se genera para crear el efecto. */
+            position: absolute; /* Se posiciona de forma absoluta sobre la imagen. */
+            top: 0; left: 0; right: 0; bottom: 0; /* Lo extiende para cubrir toda la sección. */
+            background: rgba(0, 0, 0, 0.4); /* Crea una capa semitransparente oscura, lo que hace que el texto blanco encima sea más legible. */
+            z-index: 1; /* Lo coloca sobre la imagen pero debajo del contenido de texto. */
+        }
+        /* Estilos para el contenido dentro de la sección de encabezado (texto, títulos) */
+        .header-content {
+            position: relative; /* Asegura que el texto (título y subtítulo) esté por encima del 'overlay' oscuro. */
+            z-index: 2; /* Lo coloca por encima del pseudo-elemento. */
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800">
+    <!-- Sección del encabezado (Header) de la página -->
+    <header class="bg-emerald-700 text-white p-4 shadow-md">
+        <nav class="container mx-auto flex justify-between items-center">
+            <a href="#" class="text-3xl font-bold tracking-tight text-emerald-50 hover:text-emerald-200">UrbanBeat</a> <!-- El logo o nombre de la aplicación, con estilos de Tailwind para tamaño, negrita y color. -->
+            <!-- Lista de enlaces de navegación -->
+            <ul class="flex space-x-6">
+                <li><a href="#" class="hover:text-emerald-200">Inicio</a></li>
+                <li><a href="#" class="hover:text-emerald-200">Explorar</a></li>
+                <li><a href="#" class="hover:text-emerald-200">Acerca de</a></li>
+                <li><a href="#" class="hover:text-emerald-200">Contacto</a></li>
+            </ul>
+        </nav>
+    </header>
+    <!-- Sección de bienvenida con imagen de fondo y texto principal -->
+    <section class="header-bg-image py-20 px-4 text-center text-white">
+        <div class="header-content container mx-auto">
+            <h1 class="text-5xl font-extrabold mb-4 leading-tight">UrbanBeat</h1> <!-- El título principal de la aplicación, grande y llamativo. -->
+            <p class="text-xl opacity-90">Tu pulso urbano en Lima</p> <!-- Un subtítulo que describe brevemente el propósito de la app. -->
+        </div>
+    </section>
+
+    <!-- Contenido principal de la página (Main) -->
+    <main class="container mx-auto py-12 px-4 flex-grow">
+        <h2 class="text-4xl font-bold text-center mb-6 text-emerald-800">Visor Automático de Rutas</h2> <!-- Título de la sección donde el usuario interactuará. -->
+        <p class="text-center text-gray-600 mb-8">Busca un lugar y visualiza la ruta generada automáticamente.</p> <!-- Instrucción para el usuario. -->
+
+        <!-- Formulario de búsqueda -->
+        <div class="flex flex-col md:flex-row gap-4 justify-center mb-8">
+            <input id="query" type="text" placeholder="¿Qué buscas? (ej. restaurante)" class="px-4 py-2 border border-gray-300 rounded-md w-full md:w-1/3"> <!-- Campo de texto para la consulta del usuario (qué busca). -->
+            <input id="location" type="text" placeholder="¿Dónde? (ej. Cieneguilla, Lima, Perú)" class="px-4 py-2 border border-gray-300 rounded-md w-full md:w-1/3"> <!-- Campo de texto para la ubicación. Aquí es donde el usuario puede especificar la ubicación, ya que la detección automática no fue posible. -->
+            <button onclick="realizarBusqueda()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-md shadow-md transition duration-300 hover:scale-105">
+                Realizar Búsqueda 🔍 <!-- Botón que, al ser clicado, activa la función JavaScript 'realizarBusqueda()' para procesar la entrada. -->
+            </button>
+        </div>
+
+        <div id="error-message" class="max-w-md mx-auto"></div> <!-- Div donde se mostrarán los mensajes de error al usuario, si los hay. -->
+
+        <!-- Contenedor del mapa y su información superpuesta -->
+        <div id="map-container" class="relative bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden mt-8">
+            <div id="map" class="min-h-[300px] md:min-h-[500px]"></div> <!-- El div donde Leaflet renderizará el mapa interactivo. -->
+            <div id="info"></div> <!-- Div para mostrar detalles de la ruta (distancia, tiempo) una vez que se genere. -->
+        </div>
+    </main>
+
+    <!-- Contenedor del iframe de TripAdvisor -->
+    <div id="tripadvisor-container" class="container mx-auto my-12 px-4 hidden"> <!-- Este contenedor está inicialmente oculto. Se hará visible cuando se genere una ruta. -->
+        <h3 class="text-2xl font-semibold text-center text-emerald-800 mb-4">Explora en TripAdvisor</h3> <!-- Título de la sección de TripAdvisor. -->
+        <iframe id="tripadvisor-frame"
+                class="w-full h-[500px] rounded-lg border-2 border-emerald-400 shadow-md"
+                loading="lazy" <!-- 'lazy loading' significa que el iframe solo se cargará cuando esté a punto de aparecer en la pantalla, mejorando el rendimiento. -->
+                referrerpolicy="no-referrer" <!-- Una medida de seguridad que evita enviar información de la página de origen al sitio de TripAdvisor. -->
+                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"> <!-- Restricciones de seguridad para el contenido del iframe, limitando lo que puede hacer TripAdvisor dentro de nuestra página. -->
+        </iframe>
+    </div>
+    <!-- Sección del pie de página (Footer) -->
+    <footer class="bg-gray-800 text-white py-6 px-4 text-center mt-auto">
+        <div class="container mx-auto">
+            <p>&copy; 2025 UrbanBeat. Todos los derechos reservados.</p> <!-- Información de copyright y año de la aplicación. -->
+        </div>
+    </footer>
+    <!-- Script JavaScript para la lógica interactiva de la aplicación -->
+    <script>
+        // Variables globales para el manejo del mapa y el estado de la búsqueda
+        let map; // Esta variable almacenará la instancia del objeto mapa de Leaflet, permitiendo manipularlo desde cualquier función.
+        let lastQuery = ''; // Guarda la última consulta de búsqueda (ej. "restaurante") para usarla en el cuadro de información.
+        let lastLocation = ''; // Guarda la última ubicación de búsqueda (ej. "Lima, Perú") para el mismo propósito.
+
+        /**
+         * @function initializeMap
+         * @description Inicializa o reinicializa el mapa de Leaflet.
+         * Si ya existe una instancia de mapa, la remueve para evitar duplicados.
+         * Centra el mapa en Lima y añade la capa base de OpenStreetMap.
+         */
+        function initializeMap() {
+            if (map) map.remove(); // Si ya hay un mapa cargado, lo eliminamos para evitar superposiciones o errores al reinicializar.
+            map = L.map('map').setView([-12.0464, -77.0428], 12); // Creamos una nueva instancia del mapa Leaflet, vinculándola al div con id 'map'. Lo centramos en las coordenadas de Lima y establecemos un nivel de zoom inicial de 12.
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' // Añadimos la capa de teselas de OpenStreetMap, que son las "imágenes" del mapa. La atribución es un requisito legal.
+            }).addTo(map); // Agregamos la capa de teselas a nuestro mapa recién creado.
+        }
+
+        /**
+         * @async
+         * @function realizarBusqueda
+         * @description Función asíncrona que se ejecuta al hacer clic en el botón "Realizar Búsqueda".
+         * Obtiene los valores de los campos de consulta y ubicación, los envía a un servidor backend
+         * (asumido en `http://localhost:5000`) y, si la respuesta es exitosa, llama a 'loadAndVisualizeRoute()'.
+         * Maneja los errores de la llamada al backend y los muestra al usuario.
+         */
+        async function realizarBusqueda() {
+            const query = document.getElementById('query').value.trim(); // Captura el texto ingresado en el campo de "qué buscas" y elimina espacios extra.
+            const location = document.getElementById('location').value.trim(); // Captura el texto ingresado en el campo de "dónde" y elimina espacios extra.
+            const errorDiv = document.getElementById('error-message'); // Obtenemos una referencia al div donde mostraremos mensajes de error.
+            errorDiv.style.display = 'none'; // Ocultamos cualquier mensaje de error anterior antes de una nueva búsqueda.
+
+            lastQuery = query; // Guardamos la consulta para mostrarla en el cuadro de información de la ruta.
+            lastLocation = location; // Guardamos la ubicación para mostrarla y usarla en el iframe de TripAdvisor.
+
+            try {
+                // Realizamos una solicitud POST a nuestra API backend. Esta API se encarga de procesar la búsqueda y generar la ruta.
+                const res = await fetch('http://localhost:5000/api/ejecutar', {
+                    method: 'POST', // El método POST se usa para enviar datos al servidor.
+                    headers: { 'Content-Type': 'application/json' }, // Indicamos que el cuerpo de la solicitud es JSON.
+                    body: JSON.stringify({ query, location }) // Convertimos los datos de la búsqueda a formato JSON y los enviamos.
+                });
+                const data = await res.json(); // Esperamos la respuesta del servidor y la parseamos como JSON.
+
+                if (data.success) {
+                    await loadAndVisualizeRoute(); // Si el backend nos dice que la operación fue exitosa, procedemos a cargar y dibujar la ruta en el mapa.
+                    // Limpiamos los campos de entrada para que el usuario pueda realizar una nueva búsqueda fácilmente.
+                    document.getElementById('query').value = "";
+                    document.getElementById('location').value = "";
+                } else {
+                    // Si el backend reporta un error (data.success es false), lanzamos una excepción con el mensaje de error.
+                    throw new Error(data.message || 'Error desconocido');
+                }
+            } catch (e) {
+                // Si ocurre cualquier error durante la comunicación con el backend (ej. el servidor no responde, error de red), lo capturamos aquí.
+                errorDiv.textContent = `❌ ${e.message}`; // Mostramos el mensaje de error al usuario en el div 'error-message'.
+                errorDiv.style.display = 'block'; // Hacemos visible el div de error.
+            }
+        }
+
+        /**
+         * @async
+         * @function loadAndVisualizeRoute
+         * @description Función asíncrona que carga los datos de la ruta desde el archivo 'ruta.json'
+         * (asumido que es generado por el backend) y los dibuja en el mapa.
+         * También actualiza el cuadro de información de la ruta y muestra el iframe de TripAdvisor.
+         */
+        async function loadAndVisualizeRoute() {
+            const errorDiv = document.getElementById('error-message'); // Obtenemos la referencia al div de errores.
+            errorDiv.style.display = 'none'; // Ocultamos cualquier error previo.
+
+            // Limpiamos cualquier ruta o marcadores anteriores en el mapa para dibujar la nueva.
+            if (window.routeLayer) map.removeLayer(window.routeLayer);
+            if (window.startMarker) map.removeLayer(window.startMarker);
+            if (window.endMarker) map.removeLayer(window.endMarker);
+
+            const infoDiv = document.getElementById('info'); // Obtenemos la referencia al div de información de la ruta.
+            infoDiv.style.display = 'none'; // Ocultamos cualquier información previa.
+
+            try {
+                // Intentamos cargar el archivo 'ruta.json'. Este archivo contiene las coordenadas y propiedades de la ruta generada.
+                const response = await fetch('ruta.json');
+                if (!response.ok) throw new Error('No se pudo cargar el archivo ruta.json'); // Si el archivo no se carga correctamente (ej. error 404), lanzamos un error.
+                const routeData = await response.json(); // Parseamos los datos del archivo JSON.
+
+                const route = routeData.features[0]; // Accedemos a la primera característica (feature) de la ruta (asumiendo un formato GeoJSON).
+                // Mapeamos las coordenadas de la ruta al formato [latitud, longitud] que Leaflet espera para dibujar líneas.
+                const coords = route.geometry.coordinates[0].map(c => [c[1], c[0]]);
+                // Creamos una línea de polilínea en el mapa usando las coordenadas, definiendo su color, grosor y opacidad.
+                const routeLine = L.polyline(coords, { color: '#3b82f6', weight: 5, opacity: 0.7 });
+
+                // Creamos marcadores para el punto de inicio y fin de la ruta, añadiéndoles un pequeño mensaje (popup).
+                const startMarker = L.marker(coords[0]).bindPopup("📍 Inicio");
+                const endMarker = L.marker(coords[coords.length - 1]).bindPopup("🏁 Fin");
+
+                // Guardamos las referencias a los marcadores y la capa de ruta en el objeto 'window' para poder eliminarlos en futuras búsquedas.
+                window.startMarker = startMarker;
+                window.endMarker = endMarker;
+                window.routeLayer = L.layerGroup([routeLine, startMarker, endMarker]).addTo(map); // Agrupamos la línea y los marcadores en una capa y la añadimos al mapa.
+                map.fitBounds(routeLine.getBounds(), { padding: [50, 50] }); // Ajustamos la vista del mapa para que toda la ruta sea visible, con un margen.
+
+                // Calculamos la distancia y el tiempo de la ruta a partir de las propiedades de los datos.
+                const distancia = (route.properties.distance / 1000).toFixed(2); // Convertimos metros a kilómetros y redondeamos a 2 decimales.
+                const tiempo = (route.properties.time / 60).toFixed(1); // Convertimos segundos a minutos y redondeamos a 1 decimal.
+
+                // Actualizamos el contenido del div de información con los detalles de la ruta y las búsquedas realizadas.
+                infoDiv.innerHTML = `<b>Buscaste:</b> ${document.getElementById('query').value || lastQuery}<br><b>En:</b> ${document.getElementById('location').value || lastLocation}<br><b>Distancia:</b> ${distancia} km<br><b>Tiempo:</b> ${tiempo} min`;
+                infoDiv.style.display = 'block'; // Hacemos visible el div de información.
+
+                // Integración con TripAdvisor: Mostramos un iframe con búsquedas relacionadas.
+                const tripFrameDiv = document.getElementById('tripadvisor-container'); // Referencia al contenedor del iframe.
+                const tripFrame = document.getElementById('tripadvisor-frame'); // Referencia al iframe.
+                // Construimos la URL de búsqueda de TripAdvisor usando la última ubicación.
+                tripFrame.src = `https://www.tripadvisor.com.pe/Search?q=${encodeURIComponent(lastLocation)}`;
+                tripFrameDiv.style.display = 'block'; // Hacemos visible el contenedor del iframe.
+
+            } catch (e) {
+                // Capturamos y mostramos cualquier error que ocurra al cargar o visualizar la ruta (ej. archivo JSON corrupto).
+                errorDiv.textContent = `Error al mostrar la ruta: ${e.message}`; // Mostramos el mensaje de error.
+                errorDiv.style.display = 'block'; // Hacemos visible el div de error.
+            }
+        }
+
+        // Event Listener: Este es crucial. Asegura que la función 'initializeMap()' se ejecute
+        // solo cuando todo el contenido HTML de la página (el DOM) ha sido completamente cargado.
+        // Esto evita errores al intentar manipular el mapa antes de que su contenedor exista en la página.
+        document.addEventListener('DOMContentLoaded', initializeMap);
